@@ -1,8 +1,3 @@
-Aquí tienes el **README completamente formateado en Markdown**, listo para usar como `README.md`:
-
----
-
-```markdown
 # 🧾 Clasificador de Billetes USD con TensorFlow
 
 Este proyecto entrena un modelo de **clasificación de imágenes** para identificar diferentes denominaciones de **billetes de dólar estadounidense (USD)** utilizando **TensorFlow** y un modelo preentrenado **MobileNetV2**.
