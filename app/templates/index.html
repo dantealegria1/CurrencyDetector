@@ -1,20 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Clasificador de Billetes</title>
+
+<style>
+    body {
+        font-family: Arial;
+        text-align: center;
+        padding: 20px;
+        background: #f5f5f5;
+    }
+
+    h1 { font-size: 28px; }
+
+    video {
+        width: 90%;
+        border: 4px solid black;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+
+    button {
+        width: 90%;
+        padding: 20px;
+        font-size: 22px;
+        margin: 10px 0;
+        border-radius: 15px;
+        border: none;
+        background-color: #1a73e8;
+        color: white;
+        font-weight: bold;
+    }
+
+    #menu {
+        margin: 20px 0;
+    }
+
+    #menu button {
+        width: 45%;
+        padding: 15px;
+        font-size: 18px;
+    }
+
+    #history {
+        text-align: left;
+        margin-top: 20px;
+        font-size: 18px;
+    }
+</style>
+</head>
+<body>
+
 <h1>Clasificador de Billetes</h1>
 
-<input type="file" id="imageInput">
-<button id="classifyBtn">Clasificar</button>
+<!-- 📸 VIDEO DE LA CÁMARA -->
+<video id="camera" autoplay playsinline></video>
+
+<button id="scanBtn">📷 Escanear Billete</button>
+<button id="sumBtn">🧮 Terminar de Contar</button>
 
 <h2 id="result">Resultado:</h2>
 
+<h3>Historial:</h3>
+<ul id="history"></ul>
+
+<h3>Total: <span id="sumResult">0</span></h3>
+
+<hr>
+
+<!-- ⭐ MENÚ ADICIONAL -->
+<div id="menu">
+    <button onclick="document.getElementById('imageInput').click()">Subir Imagen</button>
+</div>
+
+<input type="file" id="imageInput" accept="image/*" style="display:none">
+
 <script>
-document.getElementById("classifyBtn").addEventListener("click", async () => {
-    const fileInput = document.getElementById("imageInput");
-    if (!fileInput.files.length) {
-        alert("Selecciona una imagen primero.");
-        return;
+let historyData = [];
+
+// -------- INICIAR CÁMARA --------
+async function startCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById("camera").srcObject = stream;
+    } catch (error) {
+        alert("No se pudo activar la cámara");
+        console.error(error);
     }
+}
+startCamera();
+
+// -------- FUNCIÓN DE VOZ --------
+function speak(text) {
+    const speech = new SpeechSynthesisUtterance(text);
+    speech.lang = "es-ES";
+    window.speechSynthesis.speak(speech);
+}
+
+// -------- ESCANEAR DESDE LA CÁMARA --------
+document.getElementById("scanBtn").addEventListener("click", async () => {
+    let video = document.getElementById("camera");
+
+    // Capturar un frame en un canvas
+    let canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+
+    let blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
 
     const formData = new FormData();
-    formData.append("image", fileInput.files[0]);
+    formData.append("image", blob, "captured.jpg");
 
     const res = await fetch("/predict", {
         method: "POST",
@@ -22,9 +119,67 @@ document.getElementById("classifyBtn").addEventListener("click", async () => {
     });
 
     const data = await res.json();
-    console.log("Respuesta del servidor:", data);
 
     document.getElementById("result").innerHTML =
-        `Clase: <b>${data.class}</b><br>Confianza: <b>${(data.confidence * 100).toFixed(2)}%</b>`;
+        `Clase: <b>${data.class}</b> — Confianza: <b>${(data.confidence * 100).toFixed(2)}%</b>`;
+
+    speak("Billete detectado: " + data.class);
+
+    historyData.push(data);
+    renderHistory();
+});
+
+// -------- SUBIR IMAGEN DESDE EL MENÚ --------
+document.getElementById("imageInput").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const res = await fetch("/predict", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await res.json();
+
+    document.getElementById("result").innerHTML =
+        `Clase: <b>${data.class}</b> — Confianza: <b>${(data.confidence * 100).toFixed(2)}%</b>`;
+
+    speak("Billete detectado: " + data.class);
+
+    historyData.push(data);
+    renderHistory();
+});
+
+// -------- RENDER HISTORIAL --------
+function renderHistory() {
+    const ul = document.getElementById("history");
+    ul.innerHTML = "";
+
+    historyData.forEach((item, index) => {
+        let li = document.createElement("li");
+        li.innerHTML = `#${index + 1} → ${item.class} (${(item.confidence * 100).toFixed(1)}%)`;
+        ul.appendChild(li);
+    });
+}
+
+// -------- SUMAR BILLETES --------
+document.getElementById("sumBtn").addEventListener("click", () => {
+    let total = 0;
+
+    historyData.forEach(item => {
+        let val = parseInt(item.class);
+        if (!isNaN(val)) total += val;
+    });
+
+    document.getElementById("sumResult").textContent = total;
+
+    speak("La suma total es " + total + " dólares");
 });
 </script>
+
+</body>
+</html>
