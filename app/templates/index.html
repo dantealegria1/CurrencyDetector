@@ -2,172 +2,168 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Clasificador de Billetes</title>
+<title>Clasificador Accesible de Billetes</title>
 
 <style>
     body {
         font-family: Arial;
-        text-align: center;
+        background: #000;
+        color: #fff;
         padding: 20px;
-        background: #f5f5f5;
+        text-align: center;
+        font-size: 24px;
     }
-
-    h1 { font-size: 28px; }
 
     video {
         width: 90%;
-        border: 4px solid black;
+        max-width: 450px;
+        height: auto;
+        border: 4px solid white;
         border-radius: 10px;
-        margin-bottom: 15px;
+        margin: 20px auto;
+        display: block;
     }
 
     button {
-        width: 90%;
-        padding: 20px;
-        font-size: 22px;
-        margin: 10px 0;
-        border-radius: 15px;
-        border: none;
-        background-color: #1a73e8;
+        width: 100%;
+        padding: 28px;
+        font-size: 28px;
+        margin: 18px 0;
+        border-radius: 18px;
+        border: 3px solid white;
+        background: #1a73e8;
         color: white;
         font-weight: bold;
     }
 
-    #menu {
-        margin: 20px 0;
+    button:focus {
+        outline: 5px solid yellow;
     }
 
-    #menu button {
-        width: 45%;
-        padding: 15px;
-        font-size: 18px;
-    }
-
-    #history {
-        text-align: left;
+    h1, h2, h3 {
         margin-top: 20px;
-        font-size: 18px;
     }
 </style>
 </head>
 <body>
 
-<h1>Clasificador de Billetes</h1>
+<h1 aria-live="assertive">Clasificador Accesible de Billetes</h1>
 
-<!-- 📸 VIDEO DE LA CÁMARA -->
-<video id="camera" autoplay playsinline></video>
+<!-- Vista previa cámara -->
+<video id="camera" autoplay playsinline aria-label="Vista previa de cámara"></video>
 
-<button id="scanBtn">📷 Escanear Billete</button>
-<button id="sumBtn">🧮 Terminar de Contar</button>
-
-<h2 id="result">Resultado:</h2>
-
-<h3>Historial:</h3>
-<ul id="history"></ul>
-
-<h3>Total: <span id="sumResult">0</span></h3>
-
-<hr>
-
-<!-- ⭐ MENÚ ADICIONAL -->
-<div id="menu">
-    <button onclick="document.getElementById('imageInput').click()">Subir Imagen</button>
-</div>
+<!-- Botones grandes -->
+<button id="scanBtn" aria-label="Escanear billete">📷 Escanear Billete</button>
+<button id="sumBtn" aria-label="Calcular la suma total">🧮 Terminar de Contar</button>
+<button id="uploadBtn" aria-label="Subir imagen desde el dispositivo">📁 Subir Imagen</button>
 
 <input type="file" id="imageInput" accept="image/*" style="display:none">
 
-<script>
-let historyData = [];
+<h2 id="result" aria-live="assertive">Esperando instrucciones...</h2>
 
-// -------- INICIAR CÁMARA --------
+<h3>Historial:</h3>
+<ul id="history" aria-live="polite"></ul>
+
+<h3>Total: <span id="sumResult" aria-live="assertive">0</span></h3>
+
+
+<script>
+// --------- Voz ---------
+function speak(text) {
+    const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = "es-ES";
+    speechSynthesis.speak(msg);
+
+    if (navigator.vibrate) navigator.vibrate(100);
+}
+
+// --------- Guía Inicial ---------
+window.onload = () => {
+    speak("Bienvenido. Esta aplicación es accesible para personas ciegas.");
+    speak("Para comenzar, apunte la cámara hacia un billete y presione el botón Escanear Billete.");
+    speak("También puede presionar la tecla ese para escanear, te para terminar y u para cargar una imagen.");
+};
+
+// --------- Iniciar Cámara ---------
 async function startCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         document.getElementById("camera").srcObject = stream;
-    } catch (error) {
-        alert("No se pudo activar la cámara");
-        console.error(error);
+        speak("Cámara activada. Puedes escanear un billete cuando quieras.");
+    } catch (err) {
+        speak("No se pudo activar la cámara.");
     }
 }
 startCamera();
 
-// -------- FUNCIÓN DE VOZ --------
-function speak(text) {
-    const speech = new SpeechSynthesisUtterance(text);
-    speech.lang = "es-ES";
-    window.speechSynthesis.speak(speech);
+// --------- Historial ---------
+let historyData = [];
+function renderHistory() {
+    const ul = document.getElementById("history");
+    ul.innerHTML = "";
+
+    historyData.forEach((item, i) => {
+        let li = document.createElement("li");
+        li.innerText = `Registro ${i + 1}: ${item.class} dólares, confianza del ${Math.round(item.confidence * 100)} por ciento.`;
+        ul.appendChild(li);
+    });
 }
 
-// -------- ESCANEAR DESDE LA CÁMARA --------
-document.getElementById("scanBtn").addEventListener("click", async () => {
-    let video = document.getElementById("camera");
+// --------- Escanear Billete ---------
+async function scanFromCamera() {
+    speak("Escaneando. Un momento.");
 
-    // Capturar un frame en un canvas
+    let video = document.getElementById("camera");
     let canvas = document.createElement("canvas");
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
 
     let blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
-
     const formData = new FormData();
-    formData.append("image", blob, "captured.jpg");
+    formData.append("image", blob);
 
-    const res = await fetch("/predict", {
-        method: "POST",
-        body: formData
-    });
-
+    const res = await fetch("/predict", { method: "POST", body: formData });
     const data = await res.json();
 
-    document.getElementById("result").innerHTML =
-        `Clase: <b>${data.class}</b> — Confianza: <b>${(data.confidence * 100).toFixed(2)}%</b>`;
+    document.getElementById("result").innerText =
+        `Detectado: ${data.class} con ${(data.confidence * 100).toFixed(0)}%`;
 
-    speak("Billete detectado: " + data.class);
+    speak(`Billete detectado. Es un billete de ${data.class} dólares, con una confianza del ${(data.confidence * 100).toFixed(0)} por ciento.`);
 
-    historyData.push(data);
+    historyData.push(data); 
     renderHistory();
-});
+}
 
-// -------- SUBIR IMAGEN DESDE EL MENÚ --------
-document.getElementById("imageInput").addEventListener("change", async (event) => {
-    const file = event.target.files[0];
+document.getElementById("scanBtn").onclick = scanFromCamera;
 
+// --------- Subir Imagen ---------
+document.getElementById("uploadBtn").onclick = () => {
+    speak("Seleccione una imagen de un billete desde su dispositivo.");
+    document.getElementById("imageInput").click();
+};
+
+document.getElementById("imageInput").onchange = async (e) => {
+    const file = e.target.files[0];
     if (!file) return;
+
+    speak("Procesando imagen.");
 
     const formData = new FormData();
     formData.append("image", file);
 
-    const res = await fetch("/predict", {
-        method: "POST",
-        body: formData
-    });
-
+    const res = await fetch("/predict", { method: "POST", body: formData });
     const data = await res.json();
 
-    document.getElementById("result").innerHTML =
-        `Clase: <b>${data.class}</b> — Confianza: <b>${(data.confidence * 100).toFixed(2)}%</b>`;
-
-    speak("Billete detectado: " + data.class);
+    speak(`Imagen procesada. Es un billete de ${data.class} dólares, con ${(data.confidence * 100).toFixed(0)} por ciento de confianza.`);
 
     historyData.push(data);
     renderHistory();
-});
+};
 
-// -------- RENDER HISTORIAL --------
-function renderHistory() {
-    const ul = document.getElementById("history");
-    ul.innerHTML = "";
-
-    historyData.forEach((item, index) => {
-        let li = document.createElement("li");
-        li.innerHTML = `#${index + 1} → ${item.class} (${(item.confidence * 100).toFixed(1)}%)`;
-        ul.appendChild(li);
-    });
-}
-
-// -------- SUMAR BILLETES --------
-document.getElementById("sumBtn").addEventListener("click", () => {
+// --------- Sumar Billetes ---------
+document.getElementById("sumBtn").onclick = () => {
     let total = 0;
 
     historyData.forEach(item => {
@@ -175,9 +171,22 @@ document.getElementById("sumBtn").addEventListener("click", () => {
         if (!isNaN(val)) total += val;
     });
 
-    document.getElementById("sumResult").textContent = total;
+    document.getElementById("sumResult").innerText = total;
+    speak(`La suma total de todos los billetes escaneados es ${total} dólares.`);
+};
 
-    speak("La suma total es " + total + " dólares");
+// --------- Atajos de teclado ---------
+document.addEventListener("keydown", (e) => {
+    if (e.key === "s") scanFromCamera();
+    if (e.key === "t") document.getElementById("sumBtn").click();
+    if (e.key === "u") document.getElementById("uploadBtn").click();
+});
+
+// --------- Anunciar cada botón cuando recibe foco ---------
+document.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("focus", () => {
+        speak(btn.getAttribute("aria-label"));
+    });
 });
 </script>
 
