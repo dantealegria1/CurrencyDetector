@@ -1,240 +1,242 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<title>Detector de Billetes USD</title>
+    <meta charset="UTF-8">
+    <title>Detector de Billetes USD</title>
 
-<style>
-    html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        background: black;
-        overflow: hidden;
-        font-family: Arial, sans-serif;
-    }
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: black;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
 
-    /* Cámara en fondo completo */
-    #camera {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        z-index: 1;
-    }
+        /* Cámara en fondo completo */
+        #camera {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
 
-    /* Botón estilo PDF */
-    #mainButton {
-        position: fixed;
-        bottom: 35px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 70%;
-        max-width: 450px;
-        background: #3866FF;
-        padding: 30px 20px;
-        border-radius: 25px;
-        border: none;
-        color: white;
-        text-align: center;
-        z-index: 3;
-        cursor: pointer;
-        box-shadow: 0px 8px 20px rgba(0,0,0,0.4);
-    }
+        /* Botón estilo PDF */
+        #mainButton {
+            position: fixed;
+            bottom: 35px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70%;
+            max-width: 450px;
+            background: #3866FF;
+            padding: 30px 20px;
+            border-radius: 25px;
+            border: none;
+            color: white;
+            text-align: center;
+            z-index: 3;
+            cursor: pointer;
+            box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.4);
+        }
 
-    #mainButtonText {
-        font-size: 32px;
-        font-weight: 900;
-        margin: 0;
-    }
+        #mainButtonText {
+            font-size: 32px;
+            font-weight: 900;
+            margin: 0;
+        }
 
-    #subText {
-        font-size: 18px;
-        opacity: 0.9;
-        margin-top: 8px;
-    }
+        #subText {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
 
-    /* Resultado */
-    #resultBox {
-        position: fixed;
-        bottom: 35px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 70%;
-        max-width: 450px;
-        background: #3866FF;
-        padding: 40px 20px;
-        border-radius: 25px;
-        display: none;
-        z-index: 4;
-        cursor: pointer;
-        text-align: center;
-        box-shadow: 0px 8px 25px rgba(0,0,0,0.45);
-    }
+        /* Resultado */
+        #resultBox {
+            position: fixed;
+            bottom: 35px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70%;
+            max-width: 450px;
+            background: #3866FF;
+            padding: 40px 20px;
+            border-radius: 25px;
+            display: none;
+            z-index: 4;
+            cursor: pointer;
+            text-align: center;
+            box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.45);
+        }
 
-    #resultText {
-        font-size: 34px;
-        font-weight: 900;
-        margin-bottom: 10px;
-    }
+        #resultText {
+            font-size: 34px;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
 
-    #totalText {
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 26px;
-        font-weight: bold;
-        color: white;
-        text-shadow: 0 0 5px black;
-        z-index: 5;
-    }
+        #totalText {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 26px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 5px black;
+            z-index: 5;
+        }
 
-    #totalBox {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #3866FF;
-    padding: 20px 30px;
-    border-radius: 25px;
-    color: white;
-    font-size: 28px;
-    font-weight: 900;
-    text-align: center;
-    z-index: 5;
-    box-shadow: 0px 6px 18px rgba(0,0,0,0.45);
-}
-
-
-</style>
+        #totalBox {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #3866FF;
+            padding: 20px 30px;
+            border-radius: 25px;
+            color: white;
+            font-size: 28px;
+            font-weight: 900;
+            text-align: center;
+            z-index: 5;
+            box-shadow: 0px 6px 18px rgba(0, 0, 0, 0.45);
+        }
+    </style>
 </head>
 
 <body>
 
-<video id="camera" autoplay playsinline></video>
+    <video id="camera" autoplay playsinline></video>
 
-<div id="totalBox">$0 USD acumulado</div>
+    <div id="totalBox">$0 USD acumulado</div>
 
-<button id="mainButton">
-    <p id="mainButtonText">Escanear Billete</p>
-    <p id="subText">Click para escanear. Mantén presionado para escuchar el total.</p>
-</button>
+    <button id="mainButton">
+        <p id="mainButtonText">Escanear Billete</p>
+        <p id="subText">Click para escanear. Mantén presionado para escuchar el total.</p>
+    </button>
 
-<div id="resultBox">
-    <p id="resultText">$0 Dollar USD DETECTADO</p>
-    <p id="subText">Click para continuar</p>
-</div>
+    <div id="resultBox">
+        <p id="resultText">$0 Dollar USD DETECTADO</p>
+        <p id="subText">Click para continuar</p>
+    </div>
 
-<script>
-/* Voz accesible */
-function speak(text) {
-    const msg = new SpeechSynthesisUtterance(text);
-    msg.lang = "es-ES";
-    window.speechSynthesis.speak(msg);
-}
+    <script>
+        /* Voz accesible */
+        function speak(text) {
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = "es-ES";
+            window.speechSynthesis.speak(msg);
+        }
 
-/* Instrucciones iniciales */
-window.onload = () => {
-    speak("Bienvenido. Toque el botón para escanear un billete. Mantenga presionado el botón para escuchar el total acumulado.");
-};
-
-/* Activar cámara */
-async function startCamera() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        camera.srcObject = stream;
-    } catch {
-        speak("No se pudo activar la cámara.");
-    }
-}
-startCamera();
-
-/* Variables */
-let isLongPress = false;
-let longPressTimer;
-let total = 0;
-
-/* Escanear un billete */
-async function scanBill() {
-    speak("Escaneando, espere un momento.");
-
-    const video = document.getElementById("camera");
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
-
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
-    const formData = new FormData();
-    formData.append("image", blob);
-
-    const res = await fetch("/predict", { method: "POST", body: formData });
-    const data = await res.json();
-
-    showResult(data.class, data.confidence);
-}
-
-/* Mostrar resultado */
-function showResult(amount, confidence) {
-    const confPercent = Math.round(confidence * 100);
-
-    // Sumar
-    const val = parseInt(amount);
-    if (!isNaN(val)) {
-        total += val;
-        document.getElementById("totalBox").textContent = "$" + total + " USD acumulado";
-        speak("Total acumulado: " + total + " dólares.");
-    }
-
-    // Texto visual
-    resultText.innerHTML = 
-        "$" + amount + " Dollar USD DETECTADO<br><span style='font-size:22px;'>Confianza: " + confPercent + "%</span>";
-
-    // Mostrar
-    resultBox.style.display = "block";
-    mainButton.style.display = "none";
-
-    // Voz del resultado
-    speak("Detectado billete de " + amount + " dólares con una confianza del " + confPercent + " por ciento.");
-}
+        /* Instrucciones iniciales mejoradas */
+        window.onload = () => {
+            speak("Bienvenido. Para obtener una detección precisa, coloque el billete frente a la cámara, completamente extendido y sobre una superficie plana. Asegúrese de que haya buena iluminación. Si el billete se ve oscuro, acérquelo a una zona más iluminada. Cuando esté listo, toque el botón para escanear. Mantenga presionado el botón para escuchar el total acumulado.");
+        };
 
 
-/* Regresar al modo de escaneo */
-function resetToDetection() {
-    resultBox.style.display = "none";
-    mainButton.style.display = "block";
-    speak("Listo. Puede escanear otro billete.");
-}
+        /* Activar cámara */
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                camera.srcObject = stream;
+            } catch {
+                speak("No se pudo activar la cámara.");
+            }
+        }
+        startCamera();
 
-/* Eventos de click y long press */
-mainButton.addEventListener("mousedown", () => {
-    longPressTimer = setTimeout(() => {
-        isLongPress = true;
-        speak("El total acumulado es " + total + " dólares.");
-    }, 600);
-});
+        /* Variables */
+        let isLongPress = false;
+        let longPressTimer;
+        let total = 0;
 
-mainButton.addEventListener("mouseup", () => {
-    clearTimeout(longPressTimer);
+        /* Escanear un billete */
+        async function scanBill() {
+            speak("Escaneando, espere un momento.");
 
-    if (!isLongPress) {
-        scanBill();
-    }
+            const video = document.getElementById("camera");
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext("2d").drawImage(video, 0, 0);
 
-    isLongPress = false;
-});
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
+            const formData = new FormData();
+            formData.append("image", blob);
 
-mainButton.addEventListener("mouseleave", () => {
-    clearTimeout(longPressTimer);
-});
+            const res = await fetch("/predict", { method: "POST", body: formData });
+            const data = await res.json();
 
-/* Click para continuar */
-resultBox.onclick = resetToDetection;
+            showResult(data.class, data.confidence);
+        }
 
-</script>
+        /* Mostrar resultado */
+        function showResult(amount, confidence) {
+            const confPercent = Math.round(confidence * 100);
+
+            // Sumar
+            const val = parseInt(amount);
+            if (!isNaN(val)) {
+                total += val;
+                document.getElementById("totalBox").textContent = "$" + total + " USD acumulado";
+                speak("Total acumulado: " + total + " dólares.");
+            }
+
+            // Texto visual
+            resultText.innerHTML =
+                "$" + amount + " Dollar USD DETECTADO<br><span style='font-size:22px;'>Confianza: " + confPercent + "%</span>";
+
+            // Mostrar
+            resultBox.style.display = "block";
+            mainButton.style.display = "none";
+
+            // Voz del resultado
+            speak("Detectado billete de " + amount + " dólares con una confianza del " + confPercent + " por ciento.");
+        }
+
+
+        /* Regresar al modo de escaneo */
+        function resetToDetection() {
+            resultBox.style.display = "none";
+            mainButton.style.display = "block";
+            speak("Listo. Puede escanear otro billete.");
+        }
+
+        /* Eventos de click y long press */
+        mainButton.addEventListener("mousedown", () => {
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                speak("El total acumulado es " + total + " dólares.");
+            }, 600);
+        });
+
+        mainButton.addEventListener("mouseup", () => {
+            clearTimeout(longPressTimer);
+
+            if (!isLongPress) {
+                scanBill();
+            }
+
+            isLongPress = false;
+        });
+
+        mainButton.addEventListener("mouseleave", () => {
+            clearTimeout(longPressTimer);
+        });
+
+        /* Click para continuar */
+        resultBox.onclick = resetToDetection;
+
+    </script>
 
 </body>
+
 </html>
