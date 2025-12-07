@@ -36,18 +36,16 @@ val_generator = datagen.flow_from_directory(
     subset="validation"
 )
 
-# --- Etiquetas ---
 labels = '\n'.join(sorted(train_generator.class_indices.keys()))
 with open(os.path.join(BASE_DIR, 'labels.txt'), 'w') as f:
     f.write(labels)
 
-# --- Modelo base ---
 base_model = tf.keras.applications.MobileNetV2(
     input_shape=(IMAGE_SIZE, IMAGE_SIZE, 3),
     include_top=False,
     weights="imagenet"
 )
-base_model.trainable = False  # FASE 1
+base_model.trainable = False
 
 num_classes = train_generator.num_classes
 
@@ -59,24 +57,20 @@ model = tf.keras.Sequential([
     tf.keras.layers.Dense(num_classes, activation='softmax')
 ])
 
-# --- COMPILAR FASE 1 ---
 model.compile(
     optimizer=tf.keras.optimizers.Adam(1e-3),
     loss='categorical_crossentropy',
     metrics=['accuracy']
 )
 
-# --- ENTRENAR FASE 1 ---
 history = model.fit(
     train_generator,
-    epochs=10,          # <---- ANTES ERA 4
+    epochs=10,  
     validation_data=val_generator
 )
 
-# --- FINE TUNING (FASE 2) ---
-base_model.trainable = True   # DESCONGELAR TODO
+base_model.trainable = True
 
-# RECOMPILAR CON LEARNING RATE MUY BAJO
 model.compile(
     optimizer=tf.keras.optimizers.Adam(1e-5),
     loss='categorical_crossentropy',
@@ -85,9 +79,8 @@ model.compile(
 
 history_fine = model.fit(
     train_generator,
-    epochs=15,         # <---- ANTES ERA 5
+    epochs=15,
     validation_data=val_generator
 )
 
-# --- Guardar modelo ---
 model.save(os.path.join(BASE_DIR, "usd_model.h5"))
