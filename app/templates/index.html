@@ -16,7 +16,6 @@
             font-family: Arial, sans-serif;
         }
 
-        /* Cámara en fondo completo */
         #camera {
             position: fixed;
             top: 0;
@@ -27,7 +26,6 @@
             z-index: 1;
         }
 
-        /* Botón estilo PDF */
         #mainButton {
             position: fixed;
             bottom: 35px;
@@ -129,20 +127,17 @@
     </div>
 
     <script>
-        /* Voz accesible */
         function speak(text) {
             const msg = new SpeechSynthesisUtterance(text);
             msg.lang = "es-ES";
             window.speechSynthesis.speak(msg);
         }
 
-        /* Instrucciones iniciales mejoradas */
         window.onload = () => {
             speak("Bienvenido. Para obtener una detección precisa, coloque el billete frente a la cámara, completamente extendido y sobre una superficie plana. Asegúrese de que haya buena iluminación. Si el billete se ve oscuro, acérquelo a una zona más iluminada. Cuando esté listo, toque el botón para escanear. Mantenga presionado el botón para escuchar el total acumulado.");
         };
 
 
-        /* Activar cámara */
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -153,12 +148,10 @@
         }
         startCamera();
 
-        /* Variables */
         let isLongPress = false;
         let longPressTimer;
         let total = 0;
 
-        /* Escanear un billete */
         async function scanBill() {
             speak("Escaneando, espere un momento.");
 
@@ -178,11 +171,9 @@
             showResult(data.class, data.confidence);
         }
 
-        /* Mostrar resultado */
         function showResult(amount, confidence) {
             const confPercent = Math.round(confidence * 100);
 
-            // Sumar
             const val = parseInt(amount);
             if (!isNaN(val)) {
                 total += val;
@@ -190,27 +181,20 @@
                 speak("Total acumulado: " + total + " dólares.");
             }
 
-            // Texto visual
             resultText.innerHTML =
                 "$" + amount + " Dollar USD DETECTADO<br><span style='font-size:22px;'>Confianza: " + confPercent + "%</span>";
 
-            // Mostrar
             resultBox.style.display = "block";
             mainButton.style.display = "none";
 
-            // Voz del resultado
             speak("Detectado billete de " + amount + " dólares con una confianza del " + confPercent + " por ciento.");
         }
-
-
-        /* Regresar al modo de escaneo */
         function resetToDetection() {
             resultBox.style.display = "none";
             mainButton.style.display = "block";
             speak("Listo. Puede escanear otro billete.");
         }
 
-        /* Eventos de click y long press */
         mainButton.addEventListener("mousedown", () => {
             longPressTimer = setTimeout(() => {
                 isLongPress = true;
@@ -232,7 +216,6 @@
             clearTimeout(longPressTimer);
         });
 
-        /* Click para continuar */
         resultBox.onclick = resetToDetection;
 
     </script>
