@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detector de Billetes USD</title>
 
     <style>
@@ -42,6 +43,14 @@
             z-index: 3;
             cursor: pointer;
             box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s, background 0.2s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #mainButton:active {
+            transform: translateX(-50%) scale(0.98);
+            background: #2850dd;
         }
 
         #mainButtonText {
@@ -56,7 +65,6 @@
             margin-top: 8px;
         }
 
-        /* Resultado */
         #resultBox {
             position: fixed;
             bottom: 35px;
@@ -72,24 +80,20 @@
             cursor: pointer;
             text-align: center;
             box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.45);
+            transition: transform 0.1s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #resultBox:active {
+            transform: translateX(-50%) scale(0.98);
         }
 
         #resultText {
             font-size: 34px;
             font-weight: 900;
             margin-bottom: 10px;
-        }
-
-        #totalText {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 26px;
-            font-weight: bold;
             color: white;
-            text-shadow: 0 0 5px black;
-            z-index: 5;
         }
 
         #totalBox {
@@ -107,6 +111,44 @@
             z-index: 5;
             box-shadow: 0px 6px 18px rgba(0, 0, 0, 0.45);
         }
+
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        #loadingText {
+            color: white;
+            font-size: 28px;
+            font-weight: 900;
+            text-align: center;
+            padding: 40px;
+            background: #3866FF;
+            border-radius: 25px;
+        }
+
+        #speedControl {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: #3866FF;
+            padding: 15px 20px;
+            border-radius: 20px;
+            color: white;
+            font-size: 18px;
+            font-weight: 700;
+            z-index: 6;
+            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.4);
+            display: none;
+        }
     </style>
 </head>
 
@@ -115,108 +157,413 @@
     <video id="camera" autoplay playsinline></video>
 
     <div id="totalBox">$0 USD acumulado</div>
+    <div id="speedControl">Velocidad: 1.0x</div>
 
     <button id="mainButton">
         <p id="mainButtonText">Escanear Billete</p>
-        <p id="subText">Click para escanear. Mantén presionado para escuchar el total.</p>
+        <p id="subText">Click para escanear. Mantén presionado para opciones.</p>
     </button>
 
     <div id="resultBox">
-        <p id="resultText">$0 Dollar USD DETECTADO</p>
-        <p id="subText">Click para continuar</p>
+        <p id="resultText">$0 DETECTADO</p>
+        <p id="subText">Toque en cualquier parte para continuar</p>
+    </div>
+
+    <div id="loadingOverlay">
+        <div id="loadingText">Escaneando...</div>
     </div>
 
     <script>
-        function speak(text) {
-            const msg = new SpeechSynthesisUtterance(text);
-            msg.lang = "es-ES";
-            window.speechSynthesis.speak(msg);
+        /* ============================================================
+   🚀 DETECCIÓN DE PC VS MÓVIL
+============================================================ */
+        function isPC() {
+            return !('ontouchstart' in window) && navigator.maxTouchPoints === 0;
         }
 
-        window.onload = () => {
-            speak("Bienvenido. Para obtener una detección precisa, coloque el billete frente a la cámara, completamente extendido y sobre una superficie plana. Asegúrese de que haya buena iluminación. Si el billete se ve oscuro, acérquelo a una zona más iluminada. Cuando esté listo, toque el botón para escanear. Mantenga presionado el botón para escuchar el total acumulado.");
-        };
+        /* ============================================================
+           🚀 SISTEMA DE VOZ ESTABLE PARA GOOGLE CHROME
+        ============================================================ */
+        let speechQueue = [];
+        let isSpeaking = false;
+        let total = 0;
+        let isLongPress = false;
+        let longPressTimer = null;
+        let isProcessing = false;
+        let appReady = false;
+        let scannedBills = [];
+        let lastScanTime = null;
+        let scanCount = 0;
+        let speechRate = 1.0;
+        window.speechSynthesis.getVoices();
 
+        function speak(text, priority = false) {
+            if (priority) {
+                window.speechSynthesis.cancel();
+                speechQueue = [];
+                isSpeaking = false;
+            }
+            if (speechQueue.length > 3) {
+                speechQueue = speechQueue.slice(-2);
+            }
+            speechQueue.push(text);
+            processQueue();
+        }
 
+        function processQueue() {
+            if (isSpeaking || speechQueue.length === 0) return;
+
+            isSpeaking = true;
+            const text = speechQueue.shift();
+
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = "es-MX";
+            msg.rate = speechRate;
+            msg.pitch = 1.0;
+            msg.volume = 1.0;
+
+            msg.onend = () => {
+                isSpeaking = false;
+                setTimeout(processQueue, 600);
+            };
+
+            msg.onerror = () => {
+                isSpeaking = false;
+                setTimeout(processQueue, 600);
+            };
+
+            setTimeout(() => {
+                window.speechSynthesis.speak(msg);
+            }, 100);
+        }
+
+        /* ============================================================
+           🚀 INICIO — INSTRUCCIONES SEGÚN DISPOSITIVO
+        ============================================================ */
+        function initializeApp() {
+            if (isPC()) {
+                speak(
+                    "Bienvenido. Estás en la versión de PC. Los comandos son los siguientes: Espacio para escanear. Flecha arriba o abajo para cambiar velocidad. Flecha izquierda para desglose. Flecha derecha para reiniciar. Tecla T para total. Tecla D para desglose. Tecla R para reiniciar. La aplicación está lista.",
+                    true
+                );
+            } else {
+                speak(
+                    "Bienvenido. Toque para escanear un billete. Mantenga presionado para escuchar opciones. Deslice arriba o abajo para cambiar velocidad. Izquierda para desglose y derecha para reiniciar. La aplicación está lista.",
+                    true
+                );
+            }
+            appReady = true;
+        }
+
+        /* ============================================================
+           🚀 CÁMARA
+        ============================================================ */
         async function startCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
                 camera.srcObject = stream;
-            } catch {
-                speak("No se pudo activar la cámara.");
+
+                camera.onloadedmetadata = () => {
+                    speak("Cámara activada, toque para comenzar", true);
+                };
+            } catch (err) {
+                speak("No se pudo activar la cámara. Permita acceso en configuración.", true);
             }
         }
-        startCamera();
 
-        let isLongPress = false;
-        let longPressTimer;
-        let total = 0;
-
+        /* ============================================================
+           🚀 ESCANEO DE BILLETE
+        ============================================================ */
         async function scanBill() {
-            speak("Escaneando, espere un momento.");
+            if (isProcessing) {
+                speak("Espere, estoy procesando", true);
+                return;
+            }
+            if (!appReady) {
+                speak("Espere, iniciando aplicación", true);
+                return;
+            }
 
-            const video = document.getElementById("camera");
-            const canvas = document.createElement("canvas");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext("2d").drawImage(video, 0, 0);
+            isProcessing = true;
+            loadingOverlay.style.display = "flex";
+            speak("Escaneando, mantenga la cámara quieta", true);
 
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
-            const formData = new FormData();
-            formData.append("image", blob);
+            try {
+                const video = document.getElementById("camera");
+                if (video.videoWidth === 0) throw new Error("Video no preparado");
 
-            const res = await fetch("/predict", { method: "POST", body: formData });
-            const data = await res.json();
+                const canvas = document.createElement("canvas");
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext("2d").drawImage(video, 0, 0);
 
-            showResult(data.class, data.confidence);
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+                const fd = new FormData();
+                fd.append("image", blob);
+
+                const res = await fetch("/predict", { method: "POST", body: fd });
+                if (!res.ok) throw new Error("Error en servidor");
+
+                const data = await res.json();
+
+                loadingOverlay.style.display = "none";
+                showResult(data.class, data.confidence);
+
+            } catch (err) {
+                loadingOverlay.style.display = "none";
+                speak("Error al procesar. Intente de nuevo con mejor iluminación.", true);
+                isProcessing = false;
+            }
         }
 
+        /* ============================================================
+           🚀 RESULTADO DETECTADO
+        ============================================================ */
         function showResult(amount, confidence) {
             const confPercent = Math.round(confidence * 100);
-
             const val = parseInt(amount);
+
             if (!isNaN(val)) {
                 total += val;
-                document.getElementById("totalBox").textContent = "$" + total + " USD acumulado";
-                speak("Total acumulado: " + total + " dólares.");
+                scanCount++;
+                scannedBills.push({ amount: val, confidence: confPercent, time: new Date() });
+                lastScanTime = new Date();
+                totalBox.textContent = `$${total} USD acumulado`;
             }
 
             resultText.innerHTML =
-                "$" + amount + " Dollar USD DETECTADO<br><span style='font-size:22px;'>Confianza: " + confPercent + "%</span>";
+                `$${amount} DETECTADO<br><span style='font-size:22px;'>Confianza: ${confPercent}%</span>`;
 
             resultBox.style.display = "block";
             mainButton.style.display = "none";
 
-            speak("Detectado billete de " + amount + " dólares con una confianza del " + confPercent + " por ciento.");
+            let msg = "";
+            if (confPercent >= 80) {
+                msg = `Billete de ${amount} dólares detectado con ${confPercent} por ciento de confianza. `;
+            } else if (confPercent >= 50) {
+                msg = `Posiblemente ${amount} dólares con ${confPercent} por ciento. `;
+            } else {
+                msg = `Baja confianza. ${amount} dólares con ${confPercent} por ciento. Intente de nuevo. `;
+            }
+
+            if (!isNaN(val))
+                msg += `Total acumulado ${total} dólares. Ha escaneado ${scanCount} billetes. Toque para continuar.`;
+            else
+                msg += "Toque para continuar.";
+
+            speak(msg, true);
+            isProcessing = false;
         }
+
         function resetToDetection() {
             resultBox.style.display = "none";
             mainButton.style.display = "block";
-            speak("Listo. Puede escanear otro billete.");
+            speak("Listo para escanear", true);
         }
+        /* ============================================================
+   🚀 TOTAL
+============================================================ */
+        function announceTotal() {
+            let msg = total === 0
+                ? "Total es cero dólares. "
+                : `Total acumulado ${total} dólares. Ha escaneado ${scanCount} billetes. `;
+
+            if (isPC()) {
+                msg += "Estás en la versión de PC. Flecha arriba o abajo cambia velocidad del asistente de voz. Flecha izquierda da desglose de billetes escaneados. Flecha derecha reinicia el total.";
+            } else {
+                msg += "Deslice arriba o abajo para cambiar velocidad del asistente de voz. Izquierda para desglose de billetes escaneados. Derecha para reiniciar el total.";
+            }
+
+            speak(msg, true);
+        }
+
+        /* ============================================================
+           🚀 DESGLOSE
+        ============================================================ */
+        function announceBreakdown() {
+            if (scannedBills.length === 0) {
+                speak("No hay billetes en el historial.", true);
+                return;
+            }
+
+            const breakdown = {};
+            scannedBills.forEach(b => breakdown[b.amount] = (breakdown[b.amount] || 0) + 1);
+
+            let msg = "Desglose de billetes. ";
+            for (const [amount, count] of Object.entries(breakdown).sort((a, b) => b[0] - a[0])) {
+                msg += `${count} billete${count === 1 ? "" : "s"} de ${amount} dólares. `;
+            }
+            msg += `Total ${total} dólares.`;
+
+            speak(msg, true);
+        }
+
+        /* ============================================================
+           🚀 REINICIAR
+        ============================================================ */
+        function resetTotal() {
+            speak("¿Seguro que desea reiniciar el total acumulado? Toque o presione de nuevo para confirmar.", true);
+
+            let t = setTimeout(() => {
+                speak("Reinicio cancelado.", true);
+            }, 5000);
+
+            function confirm(e) {
+                e.stopPropagation();
+                clearTimeout(t);
+                total = 0;
+                scanCount = 0;
+                scannedBills = [];
+                totalBox.textContent = "$0 USD acumulado";
+                speak("Contador reiniciado.", true);
+                document.removeEventListener("click", confirm);
+                document.removeEventListener("keydown", keyConfirm);
+            }
+
+            function keyConfirm(ev) {
+                if (ev.key === "r" || ev.key === "R" || ev.key === "ArrowRight") {
+                    confirm(ev);
+                }
+            }
+
+            document.addEventListener("click", confirm, { once: true });
+            document.addEventListener("keydown", keyConfirm, { once: true });
+        }
+
+
+        function changeSpeechRate(delta) {
+            speechRate = Math.max(0.5, Math.min(2.0, speechRate + delta));
+
+            speedControl.textContent = "Velocidad: " + speechRate.toFixed(1) + "x";
+            speedControl.style.display = "block";
+            setTimeout(() => speedControl.style.display = "none", 2000);
+
+            speak("Velocidad " + speechRate.toFixed(1), true);
+        }
+
+        const mainButton = document.getElementById('mainButton');
+        let touchStartY = 0, touchStartX = 0, swipeDetected = false;
+
+        mainButton.addEventListener("touchstart", e => {
+            if (isPC()) return;
+
+            e.preventDefault();
+            touchStartY = e.touches[0].clientY;
+            touchStartX = e.touches[0].clientX;
+            swipeDetected = false;
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                announceTotal();
+            }, 800);
+        });
+
+        mainButton.addEventListener("touchmove", e => {
+            if (isPC()) return;
+
+            const y = e.touches[0].clientY;
+            const x = e.touches[0].clientX;
+            const dy = touchStartY - y;
+            const dx = touchStartX - x;
+
+            if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx)) {
+                swipeDetected = true;
+                clearTimeout(longPressTimer);
+                changeSpeechRate(dy > 0 ? 0.2 : -0.2);
+            }
+
+            if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy)) {
+                swipeDetected = true;
+                clearTimeout(longPressTimer);
+                if (dx > 0) announceBreakdown();
+                else resetTotal();
+            }
+        });
+
+        mainButton.addEventListener("touchend", e => {
+            if (isPC()) return;
+
+            e.preventDefault();
+            clearTimeout(longPressTimer);
+            if (!isLongPress && !swipeDetected) scanBill();
+            isLongPress = false;
+            swipeDetected = false;
+        });
 
         mainButton.addEventListener("mousedown", () => {
             longPressTimer = setTimeout(() => {
                 isLongPress = true;
-                speak("El total acumulado es " + total + " dólares.");
-            }, 600);
+                announceTotal();
+            }, 800);
         });
 
         mainButton.addEventListener("mouseup", () => {
             clearTimeout(longPressTimer);
-
-            if (!isLongPress) {
-                scanBill();
-            }
-
+            if (!isLongPress) scanBill();
             isLongPress = false;
         });
 
         mainButton.addEventListener("mouseleave", () => {
             clearTimeout(longPressTimer);
+            isLongPress = false;
+        });
+
+        document.addEventListener("keydown", e => {
+            if (!appReady) return;
+
+            if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                if (resultBox.style.display === 'block') resetToDetection();
+                else scanBill();
+                return;
+            }
+
+            if (e.key === "t" || e.key === "T") {
+                e.preventDefault();
+                announceTotal();
+                return;
+            }
+
+
+            if (e.key === "d" || e.key === "D" || e.key === "ArrowLeft") {
+                announceBreakdown();
+                return;
+            }
+
+            if (e.key === "r" || e.key === "R" || e.key === "ArrowRight") {
+                resetTotal();
+                return;
+            }
+
+            if (e.key === "ArrowUp") {
+                changeSpeechRate(0.2);
+                return;
+            }
+
+            if (e.key === "ArrowDown") {
+                changeSpeechRate(-0.2);
+                return;
+            }
         });
 
         resultBox.onclick = resetToDetection;
+
+        document.body.addEventListener('click', function firstClick(e) {
+            if (!appReady) initializeApp();
+            document.body.removeEventListener('click', firstClick);
+        }, { once: true });
+
+        startCamera();
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                window.speechSynthesis.cancel();
+                speechQueue = [];
+            } else if (appReady) {
+                speak("Aplicación activa, toque o presione para escanear", true);
+            }
+        });
 
     </script>
 
